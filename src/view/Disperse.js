@@ -1,5 +1,6 @@
 import React, { useState, useEffect,useRef } from "react";
 import { RiErrorWarningLine } from "react-icons/ri";
+import debounce from "lodash/debounce"; 
 
 
 const Disperse = () => {
@@ -10,21 +11,39 @@ const Disperse = () => {
   const [bgColor, setBgColor] = useState(false);
   const [addressIndex,setAddressIndex]=useState([0])
   const [textareaValue, setTextareaValue] = useState("");
-  const [openInput,setOpenInput]=useState(false)
+  const [success,setSuccess]=useState(false)
   const [data, setData] = useState([]);
 
 // check errors
   useEffect(()=>{ 
+ 
+    let isAmountErrorSet = false;
+    let isDuplicateErrorSet = false;
+
    for (let i = 0; i < data.length; i++) {
-    const parsedAmount = parseInt(data[i].amount, 10);
-    if (isNaN(parsedAmount)) {
+  
+   const regex= /[^0-9.]/;
+   const parsedAmount = regex.test(data[i].amount)
+    
+    if (parsedAmount) {
       setAmountError("wrong_amount");
       setLine(`Line ${i + 1} wrong amount`);
+      isAmountErrorSet = true;
       break;
     }
-   }
-   const duplicateAddresses = [];
-    for (let i = 0; i < data.length; i++) {
+    if(!parsedAmount && data[i].amount<0){
+      setAmountError("wrong_amount");
+      setLine(`Line ${i + 1} wrong amount`);
+      isAmountErrorSet = true;
+      break;
+    }
+    if(!parsedAmount && data[i].amount>=0 && i===data.length-1){
+    setAmountError("")
+    }
+  }
+
+  const duplicateAddresses = [];
+    for (let i = 0; i < data.length-1; i++) {
       for (let j = i + 1; j < data.length; j++) {
         if (data[i].address === data[j].address) {
           setDuplicateError("duplicate_address");
@@ -33,10 +52,14 @@ const Disperse = () => {
              i + 1
             }, ${j + 1}`
           );
-          setDuplicateLine(duplicateAddresses);
-        }
+        setDuplicateLine(duplicateAddresses);
+        isDuplicateErrorSet = true;
       }
     }
+  }
+  if (data.length>0 && !isAmountErrorSet && !isDuplicateErrorSet) {
+  setSuccess(true)
+   }
   },[data])
 
 // To adjust line no. after keeping firstaddress or combining them 
@@ -48,8 +71,12 @@ const Disperse = () => {
 // on submit
   const onSubmit = () => {
     setData([])
+    setAmountError("");
+    setDuplicateError("");
+    setDuplicateLine([]);
+    setSuccess(false);
     const lineData = textareaValue.split("\n")
-    const addressAmountData= lineData.map((item)=>{return item.split("=")})
+    const addressAmountData= lineData.map((item)=>{return item.split(/[ ,=]+/)})
     setAddressIndex([...Array(lineData.length).keys()]);
 
     const maindata =[]
@@ -60,9 +87,8 @@ const Disperse = () => {
       subdata.amount = addressAmountData[i][1];
       maindata.push(subdata);
     }
-   
     setData(maindata)
-
+ 
   };
 
   const convertDuplicatedDataToTextarea = (data) => {
@@ -93,8 +119,11 @@ const Disperse = () => {
     setAmountError("");
     setDuplicateError("");
     setDuplicateLine([]);
+    setSuccess(true)
   };
 
+
+// To combine amount with same address
   const combineBalance = () => {
     const combinedData = {};
    
@@ -108,7 +137,6 @@ const Disperse = () => {
       }
     });
 
-// To combine amount with same address
  const combinedDataArray = Object.keys(combinedData).map((address) => ({
       address,
       amount: combinedData[address],
@@ -120,11 +148,26 @@ const Disperse = () => {
     setDuplicateError("");
     setDuplicateLine([]);
     setBgColor(true);
+    setSuccess(true)
   };
 
+// Success alert
+useEffect(()=>{
+  if(success){
+
+  setTimeout(() => {
+    alert("Success")
+  }, 10);
+    
+  }
+},[success])
+
+// On text change
   const handleTextareaChange = (event) => {
     setTextareaValue(event.target.value); 
   };
+
+// on Press Enter 
   const handleKeyDown = (event) => {
     const lineData = textareaValue.split("\n")
     if (event.key === "Enter") {
@@ -133,51 +176,50 @@ const Disperse = () => {
   };
 
 //synchronousScroll of address,amount and line number
-  const [div1ScrollTop, setDiv1ScrollTop] = useState(0);
-  const [div2ScrollTop, setDiv2ScrollTop] = useState(0);
   const div1Ref = useRef(null);
   const div2Ref = useRef(null);
-  
+  const [scrollPosition, setScrollPosition] = useState(0);
+
+  const debouncedSetScrollPosition = useRef(
+    debounce((position) => {
+      setScrollPosition(position);
+    }, 0) 
+  ).current;
+
   const handleDiv1Scroll = (event) => {
-    setDiv1ScrollTop(event.target.scrollTop);
+    debouncedSetScrollPosition(event.target.scrollTop);
   };
 
   const handleDiv2Scroll = (event) => {
-    setDiv2ScrollTop(event.target.scrollTop);
+    debouncedSetScrollPosition(event.target.scrollTop);
   };
+  
   useEffect(() => {
+    if (div1Ref.current) {
+      div1Ref.current.scrollTop = scrollPosition;
+    }
     if (div2Ref.current) {
-      div2Ref.current.scrollTop = div1ScrollTop;
-       }
-}, [div1ScrollTop]);
+      div2Ref.current.scrollTop = scrollPosition;
+    }
+  }, [scrollPosition]);
 
-useEffect(()=>{
-
-if(div1Ref.current){
-  div1Ref.current.scrollTop = div1ScrollTop
-  setDiv1ScrollTop(div2ScrollTop);
-}},[div2ScrollTop]) 
 
   return (
-    <div className="px-[2px]" onClick={()=>setOpenInput(false)}>
-      <div className="mt-[20px] pl-[5px]">Token Address</div>
-      <div className="relative" onClick={(e)=>{e.stopPropagation();setOpenInput(!openInput)}}><input className="border-[1px] border-black w-full pl-[5px] mt-[5px] h-[50px] bg-custom-blue" placeholder="Select or search by address"/>
-      {openInput&&<div className="absolute bg-custom-blue text-custom-grey-index w-full h-[50px] pl-[5px] flex justify-center items-center">No Data</div>}
-      </div>
-      
+    <div className="px-[2px]"> 
       <div className="text-custom-grey-text pl-[5px] mt-[20px] my-[15px]">
         Addresses with Amounts
       </div>
       <div className="relative bg-custom-blue p-[16px] rounded-[12px] overflow-scroll">
         <div className="relative h-[200px]">
-          <div  ref={div1Ref}  onScroll={handleDiv1Scroll} style={{ scrollbarWidth: 0 }}  className="absolute  text-custom-grey-index bg-custom-bg-grey border-r-2 border-r-custom-grey-border h-[200px] w-[30px] overflow-hidden pr-[2px] text-right">
+          <div  ref={div1Ref}  onScroll={handleDiv1Scroll} style={{ scrollbarWidth: 0 }}  className="absolute leading-[20px]  text-custom-grey-index bg-custom-bg-grey border-r-2 border-r-custom-grey-border h-[200px] w-[30px] overflow-hidden pr-[2px] text-right">
            {addressIndex.map((lineNumber)=>{return <div key={lineNumber}>{lineNumber+1}</div>})}
            </div> 
            <div>
-           <textarea  ref={div2Ref}  onScroll={handleDiv2Scroll} className="bg-custom-bg-grey focus:outline-none caret-transparent w-full ml-[30px] break-all font-bold pl-[2px] h-[200px]" type="text-area"  
+           <textarea  ref={div2Ref}  onScroll={handleDiv2Scroll} className="bg-custom-bg-grey  leading-[20px] focus:outline-none caret-transparent w-full ml-[30px] break-all font-bold pl-[2px] h-[200px]" type="text-area"  
            value={textareaValue} 
            onChange={handleTextareaChange} 
-           onKeyDown={handleKeyDown}  />
+           onKeyDown={handleKeyDown} 
+           spellCheck="false" />
            </div>
            </div>
       </div>
