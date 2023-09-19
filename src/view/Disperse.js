@@ -43,20 +43,35 @@ const Disperse = () => {
   }
 
   const duplicateAddresses = [];
+  const duplicateIndices = {};
     for (let i = 0; i < data.length-1; i++) {
       for (let j = i + 1; j < data.length; j++) {
         if (data[i].address === data[j].address) {
-          setDuplicateError("duplicate_address");
-          duplicateAddresses.push(
-            `Address ${data[i].address} encountered duplicate in Line: ${
-             i + 1
-            }, ${j + 1}`
-          );
-        setDuplicateLine(duplicateAddresses);
-        isDuplicateErrorSet = true;
+          const address = data[i].address;
+          console.log(address,i,j)
+          if (!duplicateIndices[address]) {
+            duplicateIndices[address] = [i + 1];
+          }
+          if(duplicateIndices[address] && !duplicateIndices[address].includes(j+1)){
+            duplicateIndices[address].push(j + 1);
+          }
+        }
       }
     }
+  
+    console.log(duplicateIndices)
+  for (const address in duplicateIndices) {
+    if (duplicateIndices[address].length > 1) {
+      console.log(duplicateIndices[address])
+      setDuplicateError("duplicate_address");
+      duplicateAddresses.push(
+        `Address ${address} encountered duplicate in Line: ${duplicateIndices[address].join(', ')}`
+      );
+      isDuplicateErrorSet = true;
+    }
   }
+  setDuplicateLine(duplicateAddresses);
+
   if (data.length>0 && !isAmountErrorSet && !isDuplicateErrorSet) {
   setSuccess(true)
    }
@@ -65,7 +80,7 @@ const Disperse = () => {
 // To adjust line no. after keeping firstaddress or combining them 
  useEffect(()=>{
      const lineData = textareaValue.split("\n")
-      setAddressIndex([...Array(lineData.length).keys()]);
+     setAddressIndex([...Array(lineData.length).keys()]);
  },[textareaValue])
 
 // on submit
@@ -215,7 +230,7 @@ useEffect(()=>{
            {addressIndex.map((lineNumber)=>{return <div key={lineNumber}>{lineNumber+1}</div>})}
            </div> 
            <div>
-           <textarea  ref={div2Ref}  onScroll={handleDiv2Scroll} className="bg-custom-bg-grey  leading-[20px] focus:outline-none caret-transparent w-full ml-[30px] break-all font-bold pl-[2px] h-[200px]" type="text-area"  
+           <textarea  ref={div2Ref}  onScroll={handleDiv2Scroll} className="bg-custom-bg-grey  leading-[20px] focus:outline-none w-full ml-[30px] break-all font-bold pl-[2px] h-[200px]" type="text-area"  
            value={textareaValue} 
            onChange={handleTextareaChange} 
            onKeyDown={handleKeyDown} 
