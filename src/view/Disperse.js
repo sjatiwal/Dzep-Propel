@@ -48,7 +48,6 @@ const Disperse = () => {
       for (let j = i + 1; j < data.length; j++) {
         if (data[i].address === data[j].address) {
           const address = data[i].address;
-          console.log(address,i,j)
           if (!duplicateIndices[address]) {
             duplicateIndices[address] = [i + 1];
           }
@@ -59,10 +58,10 @@ const Disperse = () => {
       }
     }
   
-    console.log(duplicateIndices)
+  
   for (const address in duplicateIndices) {
     if (duplicateIndices[address].length > 1) {
-      console.log(duplicateIndices[address])
+ 
       setDuplicateError("duplicate_address");
       duplicateAddresses.push(
         `Address ${address} encountered duplicate in Line: ${duplicateIndices[address].join(', ')}`
